@@ -1,15 +1,48 @@
 import json
 import requests
 import logging
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+
+def _norm_authority(url: str) -> str:
+    """URL에서 host:port를 정규화해 추출. 경로/쿼리/슬래시 차이를 무시한 비교에 사용."""
+    if not url:
+        return ""
+    try:
+        candidate = url if "://" in url else f"http://{url}"
+        p = urlparse(candidate)
+        host = (p.hostname or "").lower()
+        if not host:
+            return ""
+        port = p.port or (80 if p.scheme == "http" else 443)
+        return f"{host}:{port}"
+    except Exception:
+        return ""
+
+
+def is_passthrough_agent(target_url: str) -> bool:
+    """캐시된 카드에서 capabilities.passthrough=True 인 에이전트인지 확인.
+
+    LLM이 trailing slash나 /chat 유무를 다르게 줘도 host:port로 매칭합니다.
+    캐시는 매 요청마다 갱신되므로(_AGENT_CACHE) 직전 폴링 결과를 기준으로 판단합니다.
+    """
+    target_auth = _norm_authority(target_url)
+    if not target_auth:
+        return False
+    for chat_url, card in _AGENT_CACHE.items():
+        if _norm_authority(chat_url) == target_auth:
+            return bool((card.get("capabilities") or {}).get("passthrough", False))
+    return False
 
 # 현재 프로토타입 동작을 위해 알려진 특화 에이전트 목록을 하드코딩
 # (실제 환경에서는 서비스 디스커버리 또는 레지스트리 DB를 사용할 수 있습니다)
 KNOWN_NODES: list[str] = [
     "http://127.0.0.1:9001",
     "http://127.0.0.1:9002",
-    "http://127.0.0.1:9003"
+    "http://127.0.0.1:9003",
+    "http://127.0.0.1:9004",  # web-search-agent (SearXNG + Crawl4AI ReAct)
 ]
 
 _AGENT_CACHE = {}

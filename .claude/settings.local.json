@@ -52,7 +52,29 @@
       "Bash(C:/sjkim/rag-playground/.venv/Scripts/python.exe:*)",
       "Bash(.venv/Scripts/python:*)",
       "Bash(chcp 65001)",
-      "Bash(PYTHONIOENCODING=utf-8 .venv/Scripts/python:*)"
+      "Bash(PYTHONIOENCODING=utf-8 .venv/Scripts/python:*)",
+      "Skill(oh-my-claudecode:ultrawork)",
+      "Bash(curl -s -o C:/Users/urpsys/AppData/Local/Temp/searxng_probe.json -w \"HTTP %{http_code}\\\\nCT: %{content_type}\\\\nBYTES: %{size_download}\\\\n\" \"http://localhost:8080/search?q=python&format=json\")",
+      "Bash(curl -s \"http://localhost:8080/search?q=python&format=json&engines=duckduckgo\" -o C:/Users/urpsys/AppData/Local/Temp/sx_ddg.json -w \"HTTP=%{http_code} ms=%{time_total}\\\\n\")",
+      "Bash(curl -s \"http://localhost:8080/search?q=openai&format=json\" -o C:/Users/urpsys/AppData/Local/Temp/sx_retry.json -w \"HTTP=%{http_code} ms=%{time_total}\\\\n\")",
+      "Bash(MCP_PORT=8190 python *)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" -m 3 http://127.0.0.1:8190/sse)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" -m 3 -H \"Authorization: Bearer WRONG\" http://127.0.0.1:8190/sse)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" -m 3 -H \"Authorization: Bearer mcp-dev-7a9f3c1e8b2d4f6a5c7e9b1d3f5a7c9e\" http://127.0.0.1:8190/sse)",
+      "Bash(PYTHONUTF8=1 TIKA_MCP_URL=http://127.0.0.1:8190/sse WEATHER_MCP_URL='' DOCGEN_MCP_URL='' python -c ' *)",
+      "Bash(PYTHONUTF8=1 TIKA_MCP_URL=http://127.0.0.1:8190/sse WEATHER_MCP_URL= DOCGEN_MCP_URL= python *)",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs -r -I{} taskkill /F /PID {})",
+      "Bash(PYTHONUTF8=1 python -c ' *)",
+      "Bash(curl -s -o /dev/null -w \"no-token=%{http_code}\\\\n\" -m 3 http://127.0.0.1:8191/mcp -X POST)",
+      "Bash(curl -s -o /dev/null -w \"wrong=%{http_code}\\\\n\" -m 3 -H \"Authorization: Bearer WRONG\" http://127.0.0.1:8191/mcp -X POST)",
+      "Bash(curl -s -o /dev/null -w \"good=%{http_code}\\\\n\" -m 3 -H \"Authorization: Bearer 5t01e2OsCVOCLjQOBq0UhsTdDAOLh10nwDyiILvQdZLzoLSHuVQ0qI6iNYrDFzSU\" -H \"Accept: application/json, text/event-stream\" -H \"Content-Type: application/json\" -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"probe\",\"version\":\"0\"}}}' http://127.0.0.1:8191/mcp -X POST)",
+      "Bash(PYTHONUTF8=1 TIKA_MCP_URL=http://127.0.0.1:8191/mcp WEATHER_MCP_URL= DOCGEN_MCP_URL= python *)",
+      "Bash(unset VIRTUAL_ENV)",
+      "Bash(py -3 -m py_compile c:/sjkim/a2a-playground/websearch-mcp-server/server.py)",
+      "Bash(curl.exe *)",
+      "Bash(findstr :8101)"
     ]
   }
 }

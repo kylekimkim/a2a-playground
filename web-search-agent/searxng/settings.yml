@@ -1,0 +1,25 @@
+# SearXNG 설정 — web-search-agent용 최소 설정.
+# 주의: 운영 환경에서는 server.secret_key를 반드시 안전한 임의 값으로 교체하세요.
+use_default_settings: true
+
+general:
+  instance_name: "a2a-playground SearXNG"
+
+server:
+  secret_key: "change-me-in-prod-please"
+  limiter: false               # 개발용: rate limiter 끔
+  image_proxy: false
+  http_protocol_version: "1.1"
+
+search:
+  safe_search: 1
+  autocomplete: ""
+  default_lang: "ko"
+  # ★ 핵심: 에이전트가 호출하는 JSON API를 활성화한다.
+  formats:
+    - html
+    - json
+
+ui:
+  default_locale: "ko"
+  query_in_title: true

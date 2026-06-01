@@ -22,14 +22,6 @@ def clear_mcp_tool_names():
 class TestToolNotice:
     """_tool_notice: 도구 실행 알림 텍스트 생성"""
 
-    def test_web_search_notice_contains_query(self):
-        notice = _tool_notice("web_search", {"query": "파이썬 최신 버전"})
-        assert "파이썬 최신 버전" in notice
-
-    def test_web_search_notice_has_search_icon(self):
-        notice = _tool_notice("web_search", {"query": "test"})
-        assert "🔍" in notice
-
     def test_calculator_notice_contains_expression(self):
         notice = _tool_notice("calculator", {"expression": "2 + 3"})
         assert "2 + 3" in notice
@@ -56,7 +48,7 @@ class TestToolNotice:
 
     def test_notice_is_blockquote_format(self):
         """blockquote 형식 (> 로 시작)"""
-        notice = _tool_notice("web_search", {"query": "test"})
+        notice = _tool_notice("calculator", {"expression": "1+1"})
         assert ">" in notice
 
     def test_mcp_tool_notice_has_plug_icon(self):

@@ -12,7 +12,8 @@ from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
 
 import task_store
 import room_store
-from agent import planner
+from agent import planner, registry
+from agent.tools.delegate import stream_delegate
 from models import (
     Task,
     TaskSendParams,
@@ -104,13 +105,10 @@ def _tool_notice(tool_name: str, tool_input: dict) -> str:
             detail = f"**MCP 호출**  `{tool_name}`"
         return f"\n> 🔌 {detail}\n\n"
 
-    icons = {"get_datetime": "🕐", "calculator": "🧮", "web_search": "🔍", "delegate_task": "🤖"}
+    icons = {"get_datetime": "🕐", "calculator": "🧮", "delegate_task": "🤖"}
     icon = icons.get(tool_name, "🔧")
 
-    if tool_name == "web_search":
-        query = tool_input.get("query", "")
-        detail = f'**웹 검색 툴 실행**: "{query}"'
-    elif tool_name == "calculator":
+    if tool_name == "calculator":
         expr = tool_input.get("expression", "")
         detail = f"**계산 툴 실행**: `{expr}`"
     elif tool_name == "get_datetime":
@@ -167,6 +165,10 @@ async def handle_tasks_send_subscribe(
     streamed = ""      # 화면 표시용 (툴 알림 포함)
     chunk_index = 0
 
+    # passthrough 에이전트로 위임 시 그래프 중단 후 직접 forward할 정보
+    passthrough_url: str | None = None
+    passthrough_task_desc: str | None = None
+
     try:
         async for event in graph.astream_events(
             {"messages": messages},
@@ -180,6 +182,22 @@ async def handle_tasks_send_subscribe(
                 tool_name = event.get("name", "")
                 print(f"[TOOL START] {tool_name}")
                 tool_input = event["data"].get("input", {})
+
+                # passthrough 분기: 대상이 stream-through 가능한 에이전트면
+                # 위임 알림만 보내고 그래프를 즉시 중단 → 아래에서 직접 SSE forward
+                if tool_name == "delegate_task":
+                    candidate_url = tool_input.get("target_url", "")
+                    if candidate_url and registry.is_passthrough_agent(candidate_url):
+                        notice = _tool_notice(tool_name, tool_input)
+                        streamed += notice
+                        yield _make_artifact(task_id, chunk_index, notice)
+                        chunk_index += 1
+                        passthrough_url = candidate_url
+                        passthrough_task_desc = (
+                            tool_input.get("task_description") or user_text
+                        )
+                        break
+
                 notice = _tool_notice(tool_name, tool_input)
                 streamed += notice
                 yield _make_artifact(task_id, chunk_index, notice)
@@ -236,6 +254,21 @@ async def handle_tasks_send_subscribe(
         accumulated += error_msg
         yield _make_artifact(task_id, chunk_index, error_msg)
         chunk_index += 1
+
+    # ── passthrough stream-through: 오케스트레이터 LLM 2차 합성을 건너뜀 ─────
+    if passthrough_url:
+        try:
+            async for chunk in stream_delegate(passthrough_url, passthrough_task_desc):
+                accumulated += chunk
+                streamed += chunk
+                yield _make_artifact(task_id, chunk_index, chunk)
+                chunk_index += 1
+        except Exception as e:
+            logger.exception("passthrough stream-through 실패")
+            err = f"\n\n[stream-through 실패: {e}]"
+            accumulated += err
+            yield _make_artifact(task_id, chunk_index, err)
+            chunk_index += 1
 
     # ── 종료 ─────────────────────────────────────────────────────────
     yield _make_artifact(task_id, chunk_index, "", last=True)

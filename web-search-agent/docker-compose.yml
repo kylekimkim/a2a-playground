@@ -1,0 +1,20 @@
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: a2a-searxng
+    ports:
+      # 호스트 8888 → 컨테이너 8080. 새 에이전트는 SEARXNG_URL=http://localhost:8888 로 접속.
+      - "8888:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      # settings.yml에서 ${SEARXNG_SECRET}로 참조됨.
+      SEARXNG_SECRET: "change-me-in-prod-please"
+      SEARXNG_BASE_URL: "http://localhost:8888/"
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID

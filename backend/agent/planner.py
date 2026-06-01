@@ -5,7 +5,7 @@ Planner Agent — LangGraph 기반 ReAct 에이전트.
   사용자 입력
     → LangGraph ReAct Graph
         → LLM (도구 필요 여부 판단)
-        → Tool 실행 (datetime / calculator / web_search)
+        → Tool 실행 (datetime / calculator / delegate_task / MCP tools)
         → LLM (결과 기반 최종 답변 생성)
     → SSE 스트리밍 응답
 """
@@ -31,8 +31,10 @@ _SYSTEM_PROMPT_BASE = """당신은 고급 AI 어시스턴트 겸 플래너입니
 [도구 사용 기준]
 - get_datetime : 현재 날짜, 시간, 요일이 필요할 때
 - calculator   : 수치 계산, 수식 평가가 필요할 때 (복잡한 계산은 반드시 사용)
-- web_search   : 최신 뉴스, 실시간 정보, 사실 확인, 현재 이벤트 조회 시
 - delegate_task : 다른 특화된 에이전트에게 작업을 위임할 때 사용합니다. 사용할 수 있는 에이전트 목록은 하단을 참고하세요.
+  · 본 오케스트레이터는 자체 웹 검색 도구를 보유하지 않습니다.
+  · 최신 뉴스, 실시간 정보, 사실 확인, 현재 이벤트, URL 본문 읽기 등 웹에서 정보를 가져와야 하는 모든 요청은
+    반드시 하단 목록의 'Web Search ReAct Agent'에게 delegate_task로 위임하세요.
 {mcp_tool_descriptions}
 - 직접 답변               : 일반 지식, 개념 설명, 코드 작성, 창작 등 도구 불필요 시
 

@@ -9,14 +9,16 @@ DocGen MCP Server — 문서 생성 및 다운로드 MCP 서버.
 
 실행:
   python server.py
-  → SSE 서버: http://0.0.0.0:8102/sse
+  → Streamable HTTP 서버: http://0.0.0.0:8102/mcp
 """
 import os
 import re
+import hmac
 import logging
 import uuid
 from pathlib import Path
 
+import uvicorn
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
@@ -28,11 +30,43 @@ logger = logging.getLogger(__name__)
 MCP_HOST = os.getenv("MCP_HOST", "0.0.0.0")
 MCP_PORT = int(os.getenv("MCP_PORT", "8102"))
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN", "")
 
 OUTPUT_DIR = Path(__file__).parent.parent / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 mcp = FastMCP("DocGen", host=MCP_HOST, port=MCP_PORT)
+
+
+def _bearer_auth_middleware(app, token: str):
+    """Bearer 토큰을 검증하는 raw ASGI 미들웨어. token이 비어 있으면 통과시킨다."""
+    async def wrapped(scope, receive, send):
+        if not token or scope["type"] != "http":
+            await app(scope, receive, send)
+            return
+        headers = dict(scope.get("headers") or [])
+        auth_header = headers.get(b"authorization", b"").decode("latin-1")
+        valid = (
+            auth_header.startswith("Bearer ")
+            and hmac.compare_digest(auth_header[7:], token)
+        )
+        if not valid:
+            await send({
+                "type": "http.response.start",
+                "status": 401,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"www-authenticate", b'Bearer realm="mcp"'),
+                ],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": b'{"error":"unauthorized"}',
+            })
+            return
+        await app(scope, receive, send)
+
+    return wrapped
 
 
 def _safe_stem(name: str) -> str:
@@ -214,5 +248,11 @@ def create_document(content: str, filename: str, format: str = "docx") -> str:
 
 
 if __name__ == "__main__":
-    logger.info(f"DocGen MCP 서버 시작: http://{MCP_HOST}:{MCP_PORT}/sse")
-    mcp.run(transport="sse")
+    if not MCP_AUTH_TOKEN:
+        logger.warning("MCP_AUTH_TOKEN이 설정되지 않았습니다 — 인증 없이 모든 요청을 허용합니다.")
+    else:
+        logger.info("MCP_AUTH_TOKEN 활성화 — Bearer 인증이 필요합니다.")
+    logger.info(f"DocGen MCP 서버 시작 (Streamable HTTP): http://{MCP_HOST}:{MCP_PORT}/mcp")
+
+    app = _bearer_auth_middleware(mcp.streamable_http_app(), MCP_AUTH_TOKEN)
+    uvicorn.run(app, host=MCP_HOST, port=MCP_PORT, log_level="info")

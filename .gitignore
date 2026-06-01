@@ -1,4 +1,14 @@
 .env
-.env
 node_modules
 *.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# oh-my-claudecode
+.omc/

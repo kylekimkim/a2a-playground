@@ -7,14 +7,16 @@ Weather MCP Server — OpenWeatherMap API 기반 날씨 조회 MCP 서버.
 
 실행:
   OPENWEATHER_API_KEY=<key> python server.py
-  → SSE 서버: http://0.0.0.0:8101/sse
+  → Streamable HTTP 서버: http://0.0.0.0:8101/mcp
 """
 import os
+import hmac
 import logging
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import httpx
+import uvicorn
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
@@ -27,11 +29,43 @@ logger = logging.getLogger(__name__)
 MCP_HOST = os.getenv("MCP_HOST", "0.0.0.0")
 MCP_PORT = int(os.getenv("MCP_PORT", "8101"))
 API_KEY = os.getenv("OPENWEATHER_API_KEY", "")
+MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN", "")
 
 BASE_URL = "https://api.openweathermap.org/data/2.5"
 GEO_URL = "https://api.openweathermap.org/geo/1.0"
 
 mcp = FastMCP("Weather", host=MCP_HOST, port=MCP_PORT)
+
+
+def _bearer_auth_middleware(app, token: str):
+    """Bearer 토큰을 검증하는 raw ASGI 미들웨어. token이 비어 있으면 통과시킨다."""
+    async def wrapped(scope, receive, send):
+        if not token or scope["type"] != "http":
+            await app(scope, receive, send)
+            return
+        headers = dict(scope.get("headers") or [])
+        auth_header = headers.get(b"authorization", b"").decode("latin-1")
+        valid = (
+            auth_header.startswith("Bearer ")
+            and hmac.compare_digest(auth_header[7:], token)
+        )
+        if not valid:
+            await send({
+                "type": "http.response.start",
+                "status": 401,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"www-authenticate", b'Bearer realm="mcp"'),
+                ],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": b'{"error":"unauthorized"}',
+            })
+            return
+        await app(scope, receive, send)
+
+    return wrapped
 
 
 def _check_api_key() -> None:
@@ -207,5 +241,11 @@ def get_weather_by_coords(lat: float, lon: float, units: str = "metric") -> str:
 if __name__ == "__main__":
     if not API_KEY:
         logger.warning("OPENWEATHER_API_KEY 환경 변수가 설정되지 않았습니다. 날씨 조회가 실패합니다.")
-    logger.info(f"Weather MCP 서버 시작: http://{MCP_HOST}:{MCP_PORT}/sse")
-    mcp.run(transport="sse")
+    if not MCP_AUTH_TOKEN:
+        logger.warning("MCP_AUTH_TOKEN이 설정되지 않았습니다 — 인증 없이 모든 요청을 허용합니다.")
+    else:
+        logger.info("MCP_AUTH_TOKEN 활성화 — Bearer 인증이 필요합니다.")
+    logger.info(f"Weather MCP 서버 시작 (Streamable HTTP): http://{MCP_HOST}:{MCP_PORT}/mcp")
+
+    app = _bearer_auth_middleware(mcp.streamable_http_app(), MCP_AUTH_TOKEN)
+    uvicorn.run(app, host=MCP_HOST, port=MCP_PORT, log_level="info")
